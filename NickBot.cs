@@ -19,11 +19,15 @@ namespace Simple
         private string ipAddress = "127.0.0.1";
         private int port = 8052;
         private string tankName;
-        private GameObjectState ourMostRecentState;    
+        private GameObjectState ourMostRecentState;
         private Random random;
-
+        List<GameObjectState> seenObjects = new List<GameObjectState>();
         public int unbankedPoints;
+        public int health;
+        public int ammo;
+        public Tank snitchCarrier;
         public bool hasSnitch = false;
+        private BotStateMachine botStateMachine;
 
         //Our TCP client.
         private TcpClient client;
@@ -54,6 +58,7 @@ namespace Simple
             //send the create tank request.
             SendMessage(MessageFactory.CreateTankMessage(tankName));
 
+            botStateMachine = new BotStateMachine(this);
 
         }
 
@@ -94,7 +99,7 @@ namespace Simple
             SendMessage(MessageFactory.CreateZeroPayloadMessage(NetworkMessageType.fire));
 
 
-            
+
 
         }
 
@@ -196,11 +201,19 @@ namespace Simple
 
                     if (objectState.Name == tankName)
                         ourMostRecentState = objectState;
+                    else
+                    {
+                        seenObjects.Add(objectState);
+                    }
                 }
 
-                else
+                if(messageType == NetworkMessageType.kill)
                 {
-                    Console.WriteLine(messageType.ToString());
+                    unbankedPoints++;
+                }
+                if(messageType == NetworkMessageType.snitchPickup)
+                {
+                    snitchCarrier = JsonConvert.DeserializeObject<Tank>(jsonPayload);
                 }
 
             }
@@ -243,7 +256,14 @@ namespace Simple
             }
 
 
-          
+            if (ourMostRecentState != null)
+            {
+                health = ourMostRecentState.Health;
+                ammo = ourMostRecentState.Ammo;
+            }
+
+
+            seenObjects.Clear();
 
         }
 
@@ -313,7 +333,7 @@ namespace Simple
 
     }
 
-   
+
 
 
 

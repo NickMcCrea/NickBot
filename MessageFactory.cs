@@ -88,4 +88,9 @@ namespace Simple
         public int Ammo;
     }
 
+    public class Tank
+    {
+        public int Id;
+    }
+
 }
