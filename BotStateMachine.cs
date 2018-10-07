@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Simple
 {
@@ -26,6 +28,7 @@ namespace Simple
     public enum TurretBehaviour
     {
         targetNearest,
+        findTarget,
         findAmmo,
         findHealth,
         findSnitch,
@@ -33,7 +36,9 @@ namespace Simple
 
     public enum MoveBehaviour
     {
-        wander,
+        moveToRandomPoint,
+        moveToHealth,
+        moveToAmmo,
         moveToGoal,
         moveToSnitch
     }
@@ -45,68 +50,177 @@ namespace Simple
         private int goalThreshold = 2;
         private int ammoThreshold = 2;
         private int healthThreshold = 2;
-
+        private bool targetAvailable = false;
         public TurretBehaviour CurrentTurretBehaviour { get; private set; }
         public MoveBehaviour CurrentMoveBehaviour { get; private set; }
+        DateTime randomPointMove;
+
+        Dictionary<TurretBehaviour, bool> justTransitionedTurret = new Dictionary<TurretBehaviour, bool>();
+        Dictionary<MoveBehaviour, bool> justTransitionedMove = new Dictionary<MoveBehaviour, bool>();
 
         public BotStateMachine(NickBot bot)
         {
             this.bot = bot;
-            CurrentMoveBehaviour = MoveBehaviour.wander;
-            CurrentTurretBehaviour = TurretBehaviour.targetNearest;
-        }
+        
+            justTransitionedMove.Add(MoveBehaviour.moveToGoal, false);
+            justTransitionedMove.Add(MoveBehaviour.moveToSnitch, false);
+            justTransitionedMove.Add(MoveBehaviour.moveToRandomPoint, false);
+            justTransitionedTurret.Add(TurretBehaviour.findAmmo, false);
+            justTransitionedTurret.Add(TurretBehaviour.findHealth, false);
+            justTransitionedTurret.Add(TurretBehaviour.findSnitch, false);
+            justTransitionedTurret.Add(TurretBehaviour.findTarget, false);
+            justTransitionedTurret.Add(TurretBehaviour.targetNearest, false);
 
+            ReTransitionTo(MoveBehaviour.moveToRandomPoint);
+            ReTransitionTo(TurretBehaviour.findTarget);
 
-        public void Update(List<GameObjectState> currentVisibleObjects)
-        {
-
-            if (bot.ammo < ammoThreshold)
-            {
-                if (!CanSeeObject(currentVisibleObjects, "AmmoPickup"))
-                {
-                    CurrentTurretBehaviour = TurretBehaviour.findAmmo;
-                }
-
-            }
-
-            if (bot.health < healthThreshold)
-            {
-                if (!CanSeeObject(currentVisibleObjects, "HealthPickup"))
-                {
-                    CurrentTurretBehaviour = TurretBehaviour.findHealth;
-                }
-
-            }
-
-
-            if (CurrentMoveBehaviour == MoveBehaviour.wander)
-            {
-                if (bot.unbankedPoints > goalThreshold)
-                    CurrentMoveBehaviour = MoveBehaviour.moveToGoal;
-            }
-
-             
-            if(bot.ammo > ammoThreshold && bot.health > healthThreshold && bot.unbankedPoints < goalThreshold)
-            {
-                CurrentTurretBehaviour = TurretBehaviour.targetNearest;
-                CurrentMoveBehaviour = MoveBehaviour.wander;
-            }
-
-
-
+            randomPointMove = DateTime.Now;
 
         }
 
-        private bool CanSeeObject(List<GameObjectState> visibleObjects, string type)
+
+        public void Update(Dictionary<int, GameObjectState> currentVisibleObjects)
         {
-            foreach (GameObjectState s in visibleObjects)
+
+            if (CurrentTurretBehaviour == TurretBehaviour.targetNearest)
+            {
+                if (!CanSeeObject(currentVisibleObjects, "Tank"))
+                {
+                    TransitionTo(TurretBehaviour.findTarget);
+                    targetAvailable = false;
+                }
+            }
+            if (CurrentTurretBehaviour == TurretBehaviour.findTarget)
+            {
+                if (CanSeeObject(currentVisibleObjects, "Tank"))
+                {
+                    targetAvailable = true;
+                    TransitionTo(TurretBehaviour.targetNearest);
+                }
+            }
+            //if (bot.ammo < ammoThreshold)
+            //{
+            //    if (!CanSeeObject(currentVisibleObjects, "AmmoPickup"))
+            //    {
+            //        TransitionTo(TurretBehaviour.findAmmo);
+            //    }
+
+            //}
+
+            //if (bot.health < healthThreshold)
+            //{
+            //    if (!CanSeeObject(currentVisibleObjects, "HealthPickup"))
+            //    {
+            //        TransitionTo(TurretBehaviour.findHealth);
+            //    }
+
+            //}
+
+
+            //if (CurrentMoveBehaviour == MoveBehaviour.moveToRandomPoint)
+            //{
+            //    if (bot.unbankedPoints > goalThreshold)
+            //        TransitionTo(MoveBehaviour.moveToGoal);
+
+            
+            //}
+
+
+            //if (bot.ammo > ammoThreshold && bot.health > healthThreshold && bot.unbankedPoints < goalThreshold)
+            //{
+
+            //    if (targetAvailable)
+            //        TransitionTo(TurretBehaviour.targetNearest);
+            //    if (!targetAvailable)
+            //        TransitionTo(TurretBehaviour.findTarget);
+
+            //    TransitionTo(MoveBehaviour.moveToRandomPoint);
+            //}
+
+
+           
+
+
+
+        }
+
+        private void TransitionTo(TurretBehaviour behaviour)
+        {
+
+            if (CurrentTurretBehaviour == behaviour)
+                return;
+
+            Console.WriteLine("TURRET: " + behaviour);
+            CurrentTurretBehaviour = behaviour;
+
+            //set all to false, then the one we want to true.
+            foreach (var key in justTransitionedTurret.Keys.ToList())
+            {
+                justTransitionedTurret[key] = false;
+            }
+
+            justTransitionedTurret[behaviour] = true;
+
+
+        }
+
+        private void TransitionTo(MoveBehaviour behaviour)
+        {
+
+            if (CurrentMoveBehaviour == behaviour)
+                return;
+
+            Console.WriteLine("MOVE: " + behaviour);
+            CurrentMoveBehaviour = behaviour;
+
+            foreach (var key in justTransitionedMove.Keys.ToList())
+            {
+                justTransitionedMove[key] = false;
+            }
+
+            justTransitionedMove[behaviour] = true;
+        }
+
+        private void ReTransitionTo(TurretBehaviour behaviour)
+        {
+
+            Console.WriteLine("TURRET: " + behaviour);
+            CurrentTurretBehaviour = behaviour;
+
+            //set all to false, then the one we want to true.
+            foreach (var key in justTransitionedTurret.Keys.ToList())
+            {
+                justTransitionedTurret[key] = false;
+            }
+
+            justTransitionedTurret[behaviour] = true;
+
+
+        }
+
+        private void ReTransitionTo(MoveBehaviour behaviour)
+        {
+            Console.WriteLine("MOVE: " + behaviour);
+            CurrentMoveBehaviour = behaviour;
+
+            foreach (var key in justTransitionedMove.Keys.ToList())
+            {
+                justTransitionedMove[key] = false;
+            }
+
+            justTransitionedMove[behaviour] = true;
+        }
+
+        private bool CanSeeObject(Dictionary<int, GameObjectState> visibleObjects, string type)
+        {
+            foreach (GameObjectState s in visibleObjects.Values)
             {
                 if (s.Type == type)
                     return true;
             }
             return false;
         }
-
+   
     }
 
 }

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -21,13 +22,16 @@ namespace Simple
         private string tankName;
         private GameObjectState ourMostRecentState;
         private Random random;
-        List<GameObjectState> seenObjects = new List<GameObjectState>();
+        Dictionary<int, GameObjectState> seenObjects = new Dictionary<int, GameObjectState>();
+        Dictionary<int, DateTime> lastStateReceived = new Dictionary<int, DateTime>();
         public int unbankedPoints;
         public int health;
         public int ammo;
         public Tank snitchCarrier;
         public bool hasSnitch = false;
         private BotStateMachine botStateMachine;
+        //private DateTime pointTurretToTargetTime;
+        private Dictionary<Action, DateTime> actionToLastPerformedMap = new Dictionary<Action, DateTime>();
 
         //Our TCP client.
         private TcpClient client;
@@ -41,11 +45,12 @@ namespace Simple
 
         public bool BotQuit { get; internal set; }
 
-        public NickBot(string name = "NickBot")
+        public NickBot()
         {
-            tankName = name;
-
             random = new Random();
+
+            tankName = RandomString(8);
+
 
             incomingMessages = new Queue<byte[]>();
 
@@ -191,7 +196,7 @@ namespace Simple
 
                 if (messageType == NetworkMessageType.test)
                 {
-                    Console.WriteLine("TEST ACK RECEIVED");
+                    //Console.WriteLine("TEST ACK RECEIVED");
                 }
 
                 if (messageType == NetworkMessageType.objectUpdate)
@@ -203,15 +208,30 @@ namespace Simple
                         ourMostRecentState = objectState;
                     else
                     {
-                        seenObjects.Add(objectState);
+                        if (seenObjects.ContainsKey(objectState.Id))
+                        {
+                            seenObjects[objectState.Id] = objectState;
+                            lastStateReceived[objectState.Id] = DateTime.Now;
+                        }
+                        else
+                        {
+                            seenObjects.Add(objectState.Id, objectState);
+
+                            if (!lastStateReceived.ContainsKey(objectState.Id))
+                                lastStateReceived.Add(objectState.Id, DateTime.Now);
+                            else
+                            {
+                                lastStateReceived[objectState.Id] = DateTime.Now;
+                            }
+                        }
                     }
                 }
 
-                if(messageType == NetworkMessageType.kill)
+                if (messageType == NetworkMessageType.kill)
                 {
                     unbankedPoints++;
                 }
-                if(messageType == NetworkMessageType.snitchPickup)
+                if (messageType == NetworkMessageType.snitchPickup)
                 {
                     snitchCarrier = JsonConvert.DeserializeObject<Tank>(jsonPayload);
                 }
@@ -248,6 +268,7 @@ namespace Simple
 
         public void Update()
         {
+            botStateMachine.Update(seenObjects);
 
             if (incomingMessages.Count > 0)
             {
@@ -260,29 +281,110 @@ namespace Simple
             {
                 health = ourMostRecentState.Health;
                 ammo = ourMostRecentState.Ammo;
+
+
+                if (botStateMachine.CurrentTurretBehaviour == TurretBehaviour.targetNearest)
+                {
+
+                    DoCommandAtFrequency(PointTurretToTarget, 300);
+                    DoCommandAtFrequency(Fire, 2000);
+
+                }
+
+
+                //we've lost any target, so spin around.
+                if (botStateMachine.CurrentTurretBehaviour == TurretBehaviour.findTarget)
+                {
+                    DoCommandAtFrequency(() =>
+                    {
+                        Console.WriteLine("SPIN TURRET");
+                        SendMessage(MessageFactory.CreateZeroPayloadMessage(NetworkMessageType.toggleTurretLeft));
+                    }, 1000);
+
+                }
+                
+
+                if (botStateMachine.CurrentMoveBehaviour == MoveBehaviour.moveToRandomPoint)  
+                {
+                    DoCommandAtFrequency(MoveToRandomPoint, 3000);
+                }
+
+
+                ClearOldObjectState();
+
             }
+        }
 
+        private void PointTurretToTarget()
+        {
+            Console.WriteLine("POINT TURRET TO TARGET");
+            GameObjectState nearestTank = IdentifyNearest("Tank");
+            var heading = GetHeading(ourMostRecentState.X, ourMostRecentState.Y, nearestTank.X, nearestTank.Y);
+            TurnTurretToPoint(nearestTank.X, nearestTank.Y);
+        }
 
-            seenObjects.Clear();
+        private void MoveToRandomPoint()
+        {
+            Console.WriteLine("MOVE");
+            //pick a random point, turn to it, move to it.
+            float x = GetRandomArenaXPoint();
+            float y = GetRandomArenaYPoint();
+            TurnTankBodyToPoint(x, y);
+            MoveToPoint(x, y);
+        }
+
+        private void Fire()
+        {
+            Console.WriteLine("FIRE");
+            SendMessage(MessageFactory.CreateZeroPayloadMessage(NetworkMessageType.fire));
+        }
+
+        private void ClearOldObjectState()
+        {
+            //who have we not seen for a while?
+
+            foreach (KeyValuePair<int, DateTime> kvp in lastStateReceived)
+            {
+                if ((DateTime.Now - kvp.Value).TotalSeconds > 3)
+                {
+                    if (seenObjects.ContainsKey(kvp.Key))
+                        seenObjects.Remove(kvp.Key);
+                }
+            }
 
         }
 
-        private void MoveToPoint(int randomX, int randomY)
+        private float GetRandomArenaXPoint()
+        {
+            return random.Next(-60, 60);
+        }
+
+        private float GetRandomArenaYPoint()
+        {
+            return random.Next(-90, 90);
+        }
+
+        private void MoveToPoint(float randomX, float randomY)
         {
             float distance = CalculateDistance(ourMostRecentState.X, ourMostRecentState.Y, randomX, randomY);
             SendMessage(MessageFactory.CreateMovementMessage(NetworkMessageType.moveForwardDistance, distance));
         }
 
-        private void TurnTankBodyToPoint(int randomX, int randomY)
+        private void TurnTankBodyToPoint(float randomX, float randomY)
         {
             float targetHeading2 = GetHeading(ourMostRecentState.X, ourMostRecentState.Y, randomX, randomY);
             SendMessage(MessageFactory.CreateMovementMessage(NetworkMessageType.turnToHeading, targetHeading2));
         }
 
-        private void TurnTurretToPoint(int randomTurretX, int randomTurretY)
+        private void TurnTurretToPoint(float randomTurretX, float randomTurretY)
         {
             float targetHeading = GetHeading(ourMostRecentState.X, ourMostRecentState.Y, randomTurretX, randomTurretY);
             SendMessage(MessageFactory.CreateMovementMessage(NetworkMessageType.turnTurretToHeading, targetHeading));
+        }
+
+        private float CheckDistanceTo(float x, float y)
+        {
+            return CalculateDistance(ourMostRecentState.X, ourMostRecentState.Y, x, y);
         }
 
         private float CalculateDistance(float ownX, float ownY, float otherX, float otherY)
@@ -311,6 +413,13 @@ namespace Simple
             }
         }
 
+        private float CheckAngle(float x1, float y1, float x2, float y2)
+        {
+            float heading = (float)Math.Atan2(y2 - y1, x2 - x1);
+            heading = (float)RadianToDegree(heading);
+            return heading;
+        }
+
         private float GetHeading(float x1, float y1, float x2, float y2)
         {
             float heading = (float)Math.Atan2(y2 - y1, x2 - x1);
@@ -325,10 +434,60 @@ namespace Simple
             return angle * (180.0 / Math.PI);
         }
 
+        private GameObjectState IdentifyNearest(string type)
+        {
+            float closestDist = float.MaxValue;
+            GameObjectState closest = null;
+            foreach (GameObjectState s in seenObjects.Values)
+            {
+                if (s.Name == tankName)
+                    continue;
+
+                if (s.Type == type)
+                {
+                    float distance = CalculateDistance(ourMostRecentState.X, ourMostRecentState.Y, s.X, s.Y);
+                    if (distance < closestDist)
+                    {
+                        closestDist = distance;
+                        closest = s;
+                    }
+                }
+            }
+            return closest;
+        }
+
+
         bool IsTurnLeft(float currentHeading, float desiredHeading)
         {
             float diff = desiredHeading - currentHeading;
             return diff > 0 ? diff > 180 : diff >= -180;
+        }
+
+        private string RandomString(int length)
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            return new string(Enumerable.Repeat(chars, length)
+              .Select(s => s[random.Next(s.Length)]).ToArray());
+        }
+
+        private DateTime lastRun;
+        private bool DoCommandAtFrequency(Action command, int freqInMilliseconds)
+        {
+            
+            if (!actionToLastPerformedMap.ContainsKey(command))
+                actionToLastPerformedMap.Add(command, DateTime.Now);
+            
+
+            lastRun = actionToLastPerformedMap[command];
+
+            var timeSinceLastRun = DateTime.Now - lastRun;
+            if(timeSinceLastRun.TotalMilliseconds > freqInMilliseconds)
+            {
+                command();
+                actionToLastPerformedMap[command] = DateTime.Now;
+                return true;
+            }
+            return false;
         }
 
     }
