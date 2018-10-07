@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 
 namespace Simple
 {
@@ -8,16 +9,25 @@ namespace Simple
         {
             NickBot bot = new NickBot();
 
-
-            while (!bot.BotQuit)
+            try
             {
+                while (!bot.BotQuit)
+                {
 
-                bot.Update();
+                    bot.Update();
 
-                //run at 60Hz
-                Thread.Sleep(16);
+                    //run at 60Hz
+                    Thread.Sleep(32);
 
+                }
             }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+               
+            }
+
+            Console.ReadLine();
         }
     }
 }
