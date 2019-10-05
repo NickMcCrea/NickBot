@@ -16,8 +16,10 @@ namespace Simple
     public class NickBot
     {
 
-
+        private volatile int messageCount;
         private string ipAddress = "127.0.0.1";
+        // private string ipAddress = "192.168.44.103";
+
         private int port = 8052;
         public string tankName;
         public GameObjectState ourMostRecentState;
@@ -201,11 +203,15 @@ namespace Simple
 
                 if (messageType == NetworkMessageType.objectUpdate)
                 {
+                    messageCount++;
                     GameObjectState objectState = JsonConvert.DeserializeObject<GameObjectState>(jsonPayload);
                     //Console.WriteLine("ID: " + objectState.Id + " Type: " + objectState.Type + " Name: " + objectState.Name + " ---- " + objectState.X + "," + objectState.Y + " : " + objectState.Heading + " : " + objectState.TurretHeading);
 
                     if (objectState.Name == tankName)
+                    {
                         ourMostRecentState = objectState;
+                        Console.WriteLine("ID: " + objectState.Id + " Type: " + objectState.Type + " Name: " + objectState.Name + " ---- " + objectState.X + "," + objectState.Y + " : " + objectState.Heading + " : " + objectState.TurretHeading);
+                    }
                     else
                     {
                         if (seenObjects.ContainsKey(objectState.Id))
@@ -238,7 +244,7 @@ namespace Simple
                     Console.WriteLine("SNITCH CARRIER DETECTED");
 
                 }
-                if(messageType == NetworkMessageType.enteredGoal)
+                if (messageType == NetworkMessageType.enteredGoal)
                 {
                     botStateMachine.TransitionTo(TurretBehaviour.findTarget);
                     botStateMachine.TransitionTo(MoveBehaviour.moveToRandomPoint);
@@ -277,7 +283,7 @@ namespace Simple
 
         public void Update()
         {
-            
+
 
             if (incomingMessages.Count > 0)
             {
@@ -315,25 +321,25 @@ namespace Simple
                 if (botStateMachine.CurrentMoveBehaviour == MoveBehaviour.moveToHealth)
                     DoCommandAtFrequency(MoveToNearestHealth, 1000);
 
-                
+
 
 
 
                 //we've lost any target, so spin around.
-                if (botStateMachine.CurrentTurretBehaviour == TurretBehaviour.findTarget 
-                    || botStateMachine.CurrentTurretBehaviour == TurretBehaviour.findAmmo 
-                    || botStateMachine.CurrentTurretBehaviour == TurretBehaviour.findHealth )
+                if (botStateMachine.CurrentTurretBehaviour == TurretBehaviour.findTarget
+                    || botStateMachine.CurrentTurretBehaviour == TurretBehaviour.findAmmo
+                    || botStateMachine.CurrentTurretBehaviour == TurretBehaviour.findHealth)
                 {
                     DoCommandAtFrequency(SpinTurretABit, 300);
                 }
-                
 
-                if (botStateMachine.CurrentMoveBehaviour == MoveBehaviour.moveToRandomPoint)  
+
+                if (botStateMachine.CurrentMoveBehaviour == MoveBehaviour.moveToRandomPoint)
                 {
                     DoCommandAtFrequency(MoveToRandomPoint, 5000);
                 }
 
-                if(botStateMachine.CurrentMoveBehaviour == MoveBehaviour.moveToGoal)
+                if (botStateMachine.CurrentMoveBehaviour == MoveBehaviour.moveToGoal)
                 {
                     DoCommandAtFrequency(MoveToNearestGoal, 1000);
                 }
@@ -344,6 +350,16 @@ namespace Simple
                 ClearOldObjectState();
 
             }
+            DoCommandAtFrequency(()=>
+            {
+                //Console.WriteLine("Message count: " + messageCount);
+                messageCount = 0;
+
+            }, 1000);
+
+
+
+            
         }
 
         private void SpinTurretABit()
@@ -399,7 +415,7 @@ namespace Simple
             if (nearest == null)
                 return;
 
-            TurnTankBodyToPoint(nearest.X,nearest.Y);
+            TurnTankBodyToPoint(nearest.X, nearest.Y);
             MoveToPoint(nearest.X, nearest.Y);
 
         }
@@ -420,7 +436,7 @@ namespace Simple
         private void MoveToNearestGoal()
         {
             Console.WriteLine("MOVING TO GOAL");
-           if(ourMostRecentState.Y > 0)
+            if (ourMostRecentState.Y > 0)
             {
                 TurnTankBodyToPoint(0, 105);
                 MoveToPoint(0, 105);
@@ -547,7 +563,7 @@ namespace Simple
 
         public GameObjectState IdentifyNearest(string type)
         {
-           
+
 
             float closestDist = float.MaxValue;
             GameObjectState closest = null;
@@ -586,15 +602,15 @@ namespace Simple
         private DateTime lastRun;
         private bool DoCommandAtFrequency(Action command, int freqInMilliseconds)
         {
-            
+
             if (!actionToLastPerformedMap.ContainsKey(command))
                 actionToLastPerformedMap.Add(command, DateTime.Now);
-            
+
 
             lastRun = actionToLastPerformedMap[command];
 
             var timeSinceLastRun = DateTime.Now - lastRun;
-            if(timeSinceLastRun.TotalMilliseconds > freqInMilliseconds)
+            if (timeSinceLastRun.TotalMilliseconds > freqInMilliseconds)
             {
                 command();
                 actionToLastPerformedMap[command] = DateTime.Now;
