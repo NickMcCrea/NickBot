@@ -15,10 +15,10 @@ namespace Simple
     /// </summary>
     public class NickBot
     {
-
+        bool teamMode = true;
         private volatile int messageCount;
         private string ipAddress = "127.0.0.1";
-        // private string ipAddress = "192.168.44.103";
+        //private string ipAddress = "192.168.44.103";
 
         private int port = 8052;
         public string tankName;
@@ -63,6 +63,11 @@ namespace Simple
 
 
             //send the create tank request.
+            if (teamMode)
+            {
+                tankName = random.Next(1,3).ToString() + ":" + tankName;
+            }
+
             SendMessage(MessageFactory.CreateTankMessage(tankName));
 
             botStateMachine = new BotStateMachine(this);
@@ -138,6 +143,7 @@ namespace Simple
 
                     while (client.Connected)
                     {
+
                         int type = stream.ReadByte();
                         int length = stream.ReadByte();
 
@@ -283,9 +289,9 @@ namespace Simple
 
         public void Update()
         {
+            //Console.WriteLine("Incoming Message Queue Size: " + incomingMessages.Count);
 
-
-            if (incomingMessages.Count > 0)
+            while (incomingMessages.Count > 0)
             {
                 var nextMessage = incomingMessages.Dequeue();
                 DecodeMessage((NetworkMessageType)nextMessage[0], nextMessage[1], nextMessage);
@@ -571,6 +577,18 @@ namespace Simple
             {
                 if (s.Name == tankName)
                     continue;
+
+                //if teammode, don't target own tanks
+                if (teamMode && type == "Tank")
+                {
+                    if (s.Name.Contains(":") && tankName.Contains(":"))
+                    {
+                        string myTeamName = tankName.Split(':')[0].ToUpper().Trim();
+                        string otherTeamName = s.Name.Split(':')[0].ToUpper().Trim();
+                        if (myTeamName == otherTeamName)
+                            continue;
+                    }
+                }
 
                 if (s.Type == type)
                 {

@@ -219,6 +219,10 @@ namespace Simple
         private float CheckDistanceToNearestEnemy()
         {
             GameObjectState nearest = bot.IdentifyNearest("Tank");
+
+            if (nearest == null)
+                return 0;
+
             float distance = bot.CheckDistanceTo(nearest.X, nearest.Y);
             return distance;
         }

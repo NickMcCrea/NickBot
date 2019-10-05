@@ -9,25 +9,28 @@ namespace Simple
         {
             NickBot bot = new NickBot();
 
-            try
+            while (true)
             {
-                while (!bot.BotQuit)
+                try
                 {
+                    while (!bot.BotQuit)
+                    {
 
-                    bot.Update();
+                        bot.Update();
 
-                    //run at 60Hz
-                    Thread.Sleep(32);
+                        //run at 60Hz
+                        Thread.Sleep(16);
+
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.ToString());
 
                 }
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-               
-            }
 
-            Console.ReadLine();
+                Console.ReadLine();
+            }
         }
     }
 }
