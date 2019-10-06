@@ -51,8 +51,8 @@ namespace Simple
     {
         private readonly NickBot bot;
         private int goalThreshold = 1;
-        private int ammoThreshold = 2;
-        private int healthThreshold = 2;
+        private int ammoThreshold = 1;
+        private int healthThreshold = 1;
         public TurretBehaviour CurrentTurretBehaviour { get; private set; }
         public MoveBehaviour CurrentMoveBehaviour { get; private set; }
         DateTime randomPointMove;
@@ -116,9 +116,19 @@ namespace Simple
 
             if (CurrentTurretBehaviour == TurretBehaviour.findTarget)
             {
-                if (CanSeeObject(currentVisibleObjects, "Tank"))
+                if (!bot.teamMode)
                 {
-                    TransitionTo(TurretBehaviour.aimAndFire);
+                    if (CanSeeObject(currentVisibleObjects, "Tank"))
+                    {
+                        TransitionTo(TurretBehaviour.aimAndFire);
+                    }
+                }
+                if (bot.teamMode)
+                {
+                    if (CanSeeEnemyTank(currentVisibleObjects))
+                    {
+                        TransitionTo(TurretBehaviour.aimAndFire);
+                    }
                 }
             }
 
@@ -261,6 +271,25 @@ namespace Simple
                 if (s.Type == type)
                     return true;
             }
+            return false;
+        }
+
+        private bool CanSeeEnemyTank(Dictionary<int,GameObjectState> visibleObjects)
+        {
+            foreach (GameObjectState s in visibleObjects.Values)
+            {
+                if (s.Type != "Tank")
+                    continue;
+
+                //if teammode, don't target own tanks
+                if (bot.teamMode)
+                {
+                    if (!bot.OnSameTeam(bot.tankName, s.Name))
+                        return true;
+
+                }
+            }
+
             return false;
         }
 

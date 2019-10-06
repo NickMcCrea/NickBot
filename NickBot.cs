@@ -15,7 +15,7 @@ namespace Simple
     /// </summary>
     public class NickBot
     {
-        bool teamMode = true;
+        public bool teamMode = true;
         private volatile int messageCount;
         private string ipAddress = "127.0.0.1";
         //private string ipAddress = "192.168.44.103";
@@ -65,7 +65,12 @@ namespace Simple
             //send the create tank request.
             if (teamMode)
             {
-                tankName = random.Next(1,3).ToString() + ":" + tankName;
+
+                int dice = random.Next(1, 3);
+                if (dice == 1)
+                    tankName = "Team A: " + tankName;
+                if(dice == 2)
+                    tankName = "Team B: " + tankName;
             }
 
             SendMessage(MessageFactory.CreateTankMessage(tankName));
@@ -567,6 +572,18 @@ namespace Simple
             return angle * (180.0 / Math.PI);
         }
 
+
+        public bool OnSameTeam(string name, string otherName)
+        {
+            if (name.Contains(":") && otherName.Contains(":"))
+            {
+                string myTeamName = name.Split(':')[0].ToUpper().Trim();
+                string otherTeamName = otherName.Split(':')[0].ToUpper().Trim();
+                return myTeamName == otherTeamName;
+            }
+            return false;
+        }
+
         public GameObjectState IdentifyNearest(string type)
         {
 
@@ -581,13 +598,9 @@ namespace Simple
                 //if teammode, don't target own tanks
                 if (teamMode && type == "Tank")
                 {
-                    if (s.Name.Contains(":") && tankName.Contains(":"))
-                    {
-                        string myTeamName = tankName.Split(':')[0].ToUpper().Trim();
-                        string otherTeamName = s.Name.Split(':')[0].ToUpper().Trim();
-                        if (myTeamName == otherTeamName)
+                    if(OnSameTeam(tankName, s.Name))
                             continue;
-                    }
+                    
                 }
 
                 if (s.Type == type)
