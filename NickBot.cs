@@ -403,7 +403,7 @@ namespace Simple
             GameObjectState nearest = IdentifyNearest(type);
             if (nearest != null)
             {
-                var heading = GetHeading(ourMostRecentState.X, ourMostRecentState.Y, nearest.X, nearest.Y);
+                //var heading = GetHeading(ourMostRecentState.X, ourMostRecentState.Y, nearest.X, nearest.Y);
                 TurnTurretToPoint(nearest.X, nearest.Y);
             }
         }
