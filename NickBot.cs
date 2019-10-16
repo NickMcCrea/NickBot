@@ -18,7 +18,7 @@ namespace Simple
         public bool teamMode = true;
         private volatile int messageCount;
         private string ipAddress = "127.0.0.1";
-        //private string ipAddress = "192.168.44.103";
+        //private string ipAddress = "192.168.1.99";
 
         private int port = 8052;
         public string tankName;
@@ -197,9 +197,10 @@ namespace Simple
 
         private void DecodeMessage(NetworkMessageType messageType, int payloadLength, byte[] bytes)
         {
+            string jsonPayload = "";
             try
             {
-                string jsonPayload = "";
+                
                 if (payloadLength > 0)
                 {
                     var payload = new byte[payloadLength];
@@ -269,6 +270,7 @@ namespace Simple
                 Console.WriteLine("Messaage Type: " + messageType.ToString());
                 Console.WriteLine("Payload Length: " + payloadLength);
                 Console.WriteLine("Message Length: " + bytes.Length);
+                Console.WriteLine(jsonPayload);
 
             }
 
