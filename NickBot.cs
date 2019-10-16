@@ -221,7 +221,7 @@ namespace Simple
                     if (objectState.Name == tankName)
                     {
                         ourMostRecentState = objectState;
-                        Console.WriteLine("ID: " + objectState.Id + " Type: " + objectState.Type + " Name: " + objectState.Name + " ---- " + objectState.X + "," + objectState.Y + " : " + objectState.Heading + " : " + objectState.TurretHeading);
+                        //Console.WriteLine("ID: " + objectState.Id + " Type: " + objectState.Type + " Name: " + objectState.Name + " ---- " + objectState.X + "," + objectState.Y + " : " + objectState.Heading + " : " + objectState.TurretHeading);
                     }
                     else
                     {
@@ -266,6 +266,10 @@ namespace Simple
             catch (Exception e)
             {
                 Console.WriteLine("Message decode exception " + e);
+                Console.WriteLine("Messaage Type: " + messageType.ToString());
+                Console.WriteLine("Payload Length: " + payloadLength);
+                Console.WriteLine("Message Length: " + bytes.Length);
+
             }
 
         }
