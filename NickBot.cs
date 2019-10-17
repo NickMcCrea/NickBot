@@ -69,7 +69,7 @@ namespace Simple
                 int dice = random.Next(1, 3);
                 if (dice == 1)
                     tankName = "Team A: " + tankName;
-                if(dice == 2)
+                if (dice == 2)
                     tankName = "Team B: " + tankName;
             }
 
@@ -158,7 +158,9 @@ namespace Simple
                         if (length > 0)
                         {
                             // Read incoming stream into byte arrary. 					
-                            stream.Read(bytes, 0, length);
+                            //stream.Read(bytes, 0, length);
+
+                            bytes = GetPayloadDataFromStream(stream, length);
 
                             Byte[] byteArrayCopy = new Byte[length + 2];
                             bytes.CopyTo(byteArrayCopy, 2);
@@ -193,6 +195,20 @@ namespace Simple
             {
                 Console.WriteLine("Socket exception: " + socketException);
             }
+        }
+
+        private byte[] GetPayloadDataFromStream(NetworkStream stream, int length)
+        {
+            byte[] buffer = new byte[length];
+            int read = 0;
+
+            int chunk;
+            while ((chunk = stream.Read(buffer, read, buffer.Length - read)) > 0)
+            {
+                read += chunk;
+            }
+            return buffer;
+
         }
 
         private void DecodeMessage(NetworkMessageType messageType, int payloadLength, byte[] bytes)
@@ -365,7 +381,7 @@ namespace Simple
                 ClearOldObjectState();
 
             }
-            DoCommandAtFrequency(()=>
+            DoCommandAtFrequency(() =>
             {
                 //Console.WriteLine("Message count: " + messageCount);
                 messageCount = 0;
@@ -374,7 +390,7 @@ namespace Simple
 
 
 
-            
+
         }
 
         private void SpinTurretABit()
@@ -602,9 +618,9 @@ namespace Simple
                 //if teammode, don't target own tanks
                 if (teamMode && type == "Tank")
                 {
-                    if(OnSameTeam(tankName, s.Name))
-                            continue;
-                    
+                    if (OnSameTeam(tankName, s.Name))
+                        continue;
+
                 }
 
                 if (s.Type == type)
